@@ -41,7 +41,8 @@ def _petal_count(mask: np.ndarray, min_defect_depth: float = 1000.0) -> int:
     if defects is None:
         return 1
 
-    deep_defects = sum(1 for d in defects[:, 0] if d[3] > min_defect_depth)
+    defects = defects.reshape(-1, 4)  # normalize away the (n,1,4) vs (n,4) shape difference across cv2 builds
+    deep_defects = sum(1 for d in defects if d[3] > min_defect_depth)
     # each petal typically contributes ~1 deep convexity defect at its base
     return max(1, deep_defects)
 
