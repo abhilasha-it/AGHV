@@ -25,6 +25,8 @@ AGHV-Net against baseline models.
 - `src/controller/` — PyQt6 desktop app: metric cards, workflow pipeline
   panel, live ANFIS inference simulator, and a model-comparison tab with
   bar charts + training curves
+- `streamlit_app.py` — browser-based version of the same controller, for
+  running locally at a `localhost` URL or deploying to a public URL
 - `results/` — checkpoints, metrics JSON, figures
 - `notebooks/` — exploratory notebooks
 
@@ -56,16 +58,28 @@ into `./data/flowers102`.
 
 ## Run the controller / simulator
 
+Both versions share the same panels: **Simulator** (metric cards for a
+selected model, the Workflow Pipeline panel — load an image to auto-fill
+petal count / symmetry / color intensity, and run it through a trained
+AGHV-Net checkpoint if one exists — and the Live ANFIS Inference Simulator
+sliders + rule explanation) and **Model Comparison** (accuracy/precision/
+recall/F1 bars and per-model training curves across every evaluated model).
+
+### Desktop app (PyQt6)
+
 ```bash
+pip install -r requirements-desktop.txt
 python -m src.controller.app
 ```
 
-- **Simulator tab** — pick a model to show its accuracy/precision/recall/F1/
-  misclassification metric cards (once evaluated); the Workflow Pipeline
-  panel lets you load an image and run it through the full preprocessing +
-  AGHV-Net pipeline (if a checkpoint exists) to auto-fill the ANFIS sliders;
-  the Live ANFIS Inference Simulator lets you manually adjust petal count,
-  symmetry, color intensity, and CNN/ViT confidence sliders and see the
-  fused confidence and rule explanation.
-- **Model Comparison tab** — grouped bar chart of accuracy/precision/recall/F1
-  across every evaluated model, plus per-model training curves.
+### Web app (Streamlit)
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+This opens at `http://localhost:8501`. To get a public URL instead of a
+local one, deploy it for free on [Streamlit Community Cloud](https://share.streamlit.io):
+sign in with GitHub, "New app", pick this repo, branch `master`, and set
+"Main file path" to `streamlit_app.py`.

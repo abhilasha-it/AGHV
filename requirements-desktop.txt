@@ -1,0 +1,6 @@
+# Extra dependency for the PyQt6 desktop controller (src/controller/app.py).
+# Not needed for training/evaluation or the Streamlit web app, and PyQt6
+# generally won't install cleanly on headless cloud build environments
+# (e.g. Streamlit Community Cloud), so it's kept out of requirements.txt.
+-r requirements.txt
+PyQt6
