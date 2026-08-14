@@ -1,3 +1,11 @@
+torch
+torchvision
+timm
+opencv-python
 numpy
 pandas
+scipy
+scikit-learn
 matplotlib
+PyQt6
+Pillow
