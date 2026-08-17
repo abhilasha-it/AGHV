@@ -106,19 +106,34 @@ def render_pipeline_panel():
         st.session_state["vit_conf"] = round(result["vit_conf"].item() * 100)
         pred_idx = int(result["pred_class"].item())
         st.session_state["candidate_class"] = CAT_TO_NAME.get(pred_idx + 1, f"class_{pred_idx}")
+        st.session_state["checkpoint_used"] = True
         st.success("AGHV-Net checkpoint found — CNN/ViT confidence and candidate class auto-filled below.")
     else:
-        st.warning("No trained AGHV-Net checkpoint found — set CNN/ViT confidence sliders manually.")
+        st.session_state["checkpoint_used"] = False
+        st.warning(
+            "No trained AGHV-Net checkpoint is deployed, so this image's feature values were extracted "
+            "but **the class was not classified**. Pick a candidate class yourself in the panel on the "
+            "right and the simulator will show how confident the fuzzy rules are in *that* guess — it "
+            "will not pick the class for you until a real checkpoint is trained and deployed."
+        )
 
 
 def render_anfis_panel():
     st.subheader("Live ANFIS Inference Simulator")
-    st.caption("Adjust botanical features to classify")
+    checkpoint_used = st.session_state.get("checkpoint_used", False)
+    if checkpoint_used:
+        st.caption("Candidate class below was predicted by the AGHV-Net checkpoint; adjust sliders to see how confidence responds.")
+    else:
+        st.caption("⚠️ No checkpoint deployed — pick a candidate class yourself, then adjust sliders. "
+                   "This scores your chosen class; it does not search across all 102 classes for you.")
 
     class_names = sorted(CAT_TO_NAME.values())
     default_class = st.session_state.get("candidate_class", "rose")
-    candidate = st.selectbox("Candidate class", class_names,
-                              index=class_names.index(default_class) if default_class in class_names else 0)
+    candidate = st.selectbox(
+        "Candidate class" + ("" if checkpoint_used else " (you choose — not model-predicted)"),
+        class_names,
+        index=class_names.index(default_class) if default_class in class_names else 0,
+    )
 
     petal_count = st.slider("Petal count", 1, 30, int(st.session_state.get("petal_count", 10)))
     symmetry = st.slider("Symmetry", 0, 100, int(st.session_state.get("symmetry", 89)))
