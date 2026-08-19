@@ -101,3 +101,35 @@ This opens at `http://localhost:8501`. To get a public URL instead of a
 local one, deploy it for free on [Streamlit Community Cloud](https://share.streamlit.io):
 sign in with GitHub, "New app", pick this repo, branch `master`, and set
 "Main file path" to `streamlit_app.py`.
+
+## Getting real (non-rule-only) results
+
+Without a trained AGHV-Net checkpoint, the controller runs in **pure fuzzy
+rule-engine mode** — the sliders drive the ~15-species hand-authored rule
+base directly, which is illustrative/explainable but not calibrated
+against real data, so it will misclassify anything outside those species
+or with noisy feature extraction. To get genuine deep-learning-backed
+results:
+
+1. Open [`notebooks/colab_train_aghv_net.ipynb`](notebooks/colab_train_aghv_net.ipynb)
+   in Google Colab (File -> Upload notebook, or File -> Open notebook ->
+   GitHub -> this repo), enable a GPU runtime, and run it top to bottom.
+   It clones this repo, trains + evaluates AGHV-Net (and a ResNet-50
+   baseline), and walks through hosting the resulting checkpoint
+   (`results/checkpoints/aghv_net_best.pt`, ~150-250 MB — too large to
+   commit directly to git) on Hugging Face Hub or Google Drive.
+2. In the Streamlit Cloud app's settings ("Manage app" -> Settings ->
+   Secrets), add:
+   ```toml
+   AGHV_CHECKPOINT_URL = "https://huggingface.co/<you>/aghv-net-flowers102/resolve/main/aghv_net_best.pt"
+   ```
+   The app downloads it once on first run and caches it from then on. Running
+   locally instead, just drop the file at `results/checkpoints/aghv_net_best.pt`
+   and skip the secret.
+3. Commit the notebook's `results/metrics/*.json` output back to the repo
+   (the notebook's last cell does this) so the Model Comparison tab shows
+   real accuracy/precision/recall/F1 numbers instead of "no evaluated
+   models yet."
+
+Once a checkpoint is deployed, the simulator switches from rule-only mode
+to confirming/correcting the AGHV-Net prediction (see `src/fuzzy/inference.py`).

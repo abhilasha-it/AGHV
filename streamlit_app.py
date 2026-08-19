@@ -51,6 +51,40 @@ def _hue_swatch(hue_0_179: float) -> str:
     return f"<div style='width:100%;height:14px;border-radius:4px;background:hsl({hue_deg:.0f},70%,50%);'></div>"
 
 
+def _checkpoint_url() -> str:
+    """URL of a hosted AGHV-Net checkpoint (e.g. Hugging Face Hub), set via
+    Streamlit secrets as AGHV_CHECKPOINT_URL. See notebooks/colab_train_aghv_net.ipynb
+    for how to train and host one -- a trained checkpoint is too large (150-250 MB)
+    to commit directly to the git repo.
+    """
+    try:
+        return st.secrets.get("AGHV_CHECKPOINT_URL", "")
+    except Exception:
+        return ""
+
+
+@st.cache_resource
+def ensure_checkpoint() -> str | None:
+    """Returns the local path to the AGHV-Net checkpoint, downloading it once
+    from AGHV_CHECKPOINT_URL if it isn't already present. None if no
+    checkpoint is available locally or via a configured URL.
+    """
+    local_path = ROOT_DIR / "results" / "checkpoints" / "aghv_net_best.pt"
+    if local_path.exists():
+        return str(local_path)
+
+    url = _checkpoint_url()
+    if not url:
+        return None
+
+    import urllib.request
+
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    with st.spinner("Downloading AGHV-Net checkpoint (one-time)..."):
+        urllib.request.urlretrieve(url, local_path)
+    return str(local_path)
+
+
 @st.cache_resource
 def get_aghv_net(checkpoint_path: str):
     import torch
@@ -108,11 +142,11 @@ def render_pipeline_panel():
         f"hue={features.dominant_hue:.1f}"
     )
 
-    checkpoint_path = ROOT_DIR / "results" / "checkpoints" / "aghv_net_best.pt"
-    if checkpoint_path.exists():
+    checkpoint_path = ensure_checkpoint()
+    if checkpoint_path:
         import torch
 
-        model = get_aghv_net(str(checkpoint_path))
+        model = get_aghv_net(checkpoint_path)
         processed = PreprocessingPipeline()(image)
         tensor = torch.from_numpy(processed).permute(2, 0, 1).unsqueeze(0).float()
         result = model.predict_with_confidences(tensor)
