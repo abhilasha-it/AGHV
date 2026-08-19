@@ -1,10 +1,12 @@
 # research
 
 AGHV-Net (Attention-Guided Hybrid Vision Network) — a CNN + Vision
-Transformer hybrid for flower classification (Oxford 102 Flowers),
-fronted by an ANFIS (Adaptive Neuro-Fuzzy Inference System) fuzzy-logic
-controller/simulator, with a desktop app to run inference and compare
-AGHV-Net against baseline models.
+Transformer hybrid for flower classification (Oxford 102 Flowers) — fronted
+by an explainable fuzzy-logic controller/simulator that classifies a flower
+from its botanical features via an inspectable IF-THEN rule base (in the
+spirit of ANFIS/neuro-fuzzy systems: confirming, correcting, or expressing
+uncertainty about the deep-learning branch's prediction), plus a
+model-comparison view against baseline architectures.
 
 ## Structure
 
@@ -12,21 +14,33 @@ AGHV-Net against baseline models.
   texture enhancement, color normalization pipeline
 - `src/models/aghv_net.py` — AGHV-Net: ResNet-50 branch + ViT branch fused via
   bidirectional cross-attention, with CNN/ViT auxiliary heads for deep
-  supervision (their confidences feed the ANFIS layer)
+  supervision (their confidences feed the fuzzy layer)
 - `src/models/baselines.py` — ResNet-50, VGG-16, ViT-Small, plain CNN, used
   as comparison points
 - `src/data/` — Oxford 102 Flowers dataset loader (auto-downloads via
   torchvision) and category-id -> name mapping
-- `src/fuzzy/features.py` — derives petal-count, symmetry, color-intensity
-  features from an image via classical CV
-- `src/fuzzy/anfis.py` — the trainable neuro-fuzzy fusion network
+- `src/fuzzy/features.py` — derives petal count, radial symmetry, color
+  intensity, petal-edge serration, and dominant hue from an image via
+  classical CV
+- `src/fuzzy/rule_base.py` — the expert IF-THEN fuzzy rule base (~15
+  visually distinctive Oxford-102 species, including a deliberately
+  ambiguous rose/camellia pair) with trapezoidal membership functions
+- `src/fuzzy/inference.py` — the decision engine: runs the rule base against
+  the current features and, if a trained AGHV-Net checkpoint is available,
+  confirms or overrides its prediction with an explanation
+- `src/fuzzy/anfis.py` — a standalone trainable Sugeno-style neuro-fuzzy
+  network (not currently wired into the controller; kept for future
+  data-driven calibration of the rule base's membership functions)
 - `src/train.py` / `src/evaluate.py` — train/evaluate any model in the
   comparison set, writing metrics + training curves to `results/metrics/`
-- `src/controller/` — PyQt6 desktop app: metric cards, workflow pipeline
-  panel, live ANFIS inference simulator, and a model-comparison tab with
-  bar charts + training curves
-- `streamlit_app.py` — browser-based version of the same controller, for
-  running locally at a `localhost` URL or deploying to a public URL
+- `src/controller/` — PyQt6 desktop app (**legacy**: still uses the old
+  single-candidate-class ANFIS flow, not yet updated to the rule-engine
+  redesign in `streamlit_app.py` — ask if you want it brought up to date)
+- `streamlit_app.py` — the up-to-date browser-based controller: metric
+  cards, the workflow pipeline panel, and the live fuzzy inference
+  simulator (predicted species updates automatically as any feature slider
+  changes, with the fired rule, all rule match scores, and the full rule
+  base shown for explainability)
 - `results/` — checkpoints, metrics JSON, figures
 - `notebooks/` — exploratory notebooks
 
@@ -58,14 +72,18 @@ into `./data/flowers102`.
 
 ## Run the controller / simulator
 
-Both versions share the same panels: **Simulator** (metric cards for a
-selected model, the Workflow Pipeline panel — load an image to auto-fill
-petal count / symmetry / color intensity, and run it through a trained
-AGHV-Net checkpoint if one exists — and the Live ANFIS Inference Simulator
-sliders + rule explanation) and **Model Comparison** (accuracy/precision/
-recall/F1 bars and per-model training curves across every evaluated model).
+The Streamlit app (below) is the current version. It has two tabs:
+**Simulator** — metric cards for a selected model; the Workflow Pipeline
+panel, where loading an image auto-fills petal count / symmetry / color
+intensity / edge serration / hue, and runs it through a trained AGHV-Net
+checkpoint if one exists; and the Live Fuzzy Inference Simulator, whose
+predicted species, confidence, and explanation recompute the instant any
+feature slider changes, with the fired IF-THEN rule, every rule's current
+match score, and the full rule base all shown for explainability.
+**Model Comparison** — accuracy/precision/recall/F1 bars and per-model
+training curves across every evaluated model.
 
-### Desktop app (PyQt6)
+### Desktop app (PyQt6) — legacy, not yet updated
 
 ```bash
 pip install -r requirements-desktop.txt

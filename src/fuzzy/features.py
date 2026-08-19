@@ -22,6 +22,8 @@ class BotanicalFeatures:
     petal_count: float      # estimated count, roughly 3-30
     symmetry: float         # 0-100, higher = more radially symmetric
     color_intensity: float  # 0-100, mean saturation*value of the ROI
+    edge_serration: float   # 0-100, higher = more jagged/serrated petal margin
+    dominant_hue: float     # 0-179, OpenCV hue convention (0=red, 30=yellow, 60=green, 120=blue/purple)
 
 
 def _petal_count(mask: np.ndarray, min_defect_depth: float = 1000.0) -> int:
@@ -78,10 +80,50 @@ def _color_intensity(image: np.ndarray, mask: np.ndarray) -> float:
     return float(intensity)
 
 
+def _dominant_hue(image: np.ndarray, mask: np.ndarray) -> float:
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    roi = mask > 0
+    if roi.sum() == 0:
+        return 0.0
+    hues = hsv[:, :, 0][roi]
+    # circular mean, since hue wraps around at 180 in OpenCV's convention
+    angles = hues.astype(np.float32) * (2 * np.pi / 180.0)
+    mean_angle = np.arctan2(np.sin(angles).mean(), np.cos(angles).mean())
+    return float((mean_angle / (2 * np.pi)) * 180.0) % 180.0
+
+
+def _edge_serration(mask: np.ndarray) -> float:
+    """Ratio of the actual contour perimeter to its convex-hull perimeter,
+    as a proxy for how jagged/serrated the petal margin is (a smooth round
+    petal's contour tracks its hull closely; a serrated/fringed margin adds
+    a lot of extra perimeter for the same hull).
+    """
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return 0.0
+    contour = max(contours, key=cv2.contourArea)
+    if len(contour) < 5:
+        return 0.0
+
+    hull = cv2.convexHull(contour)
+    contour_perimeter = cv2.arcLength(contour, closed=True)
+    hull_perimeter = cv2.arcLength(hull, closed=True)
+    if hull_perimeter == 0:
+        return 0.0
+
+    excess_ratio = (contour_perimeter / hull_perimeter) - 1.0
+    return float(np.clip(excess_ratio * 100, 0, 100))
+
+
 def extract_botanical_features(image: np.ndarray) -> BotanicalFeatures:
     """image: RGB uint8 array (H, W, 3)."""
     _, mask = segment_roi(image)
     petal_count = _petal_count(mask)
     symmetry = _radial_symmetry(mask)
     color_intensity = _color_intensity(image, mask)
-    return BotanicalFeatures(petal_count=petal_count, symmetry=symmetry, color_intensity=color_intensity)
+    edge_serration = _edge_serration(mask)
+    dominant_hue = _dominant_hue(image, mask)
+    return BotanicalFeatures(
+        petal_count=petal_count, symmetry=symmetry, color_intensity=color_intensity,
+        edge_serration=edge_serration, dominant_hue=dominant_hue,
+    )
